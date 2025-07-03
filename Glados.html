@@ -1,0 +1,141 @@
+<!DOCTYPE html><html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GLaDOS AI Assistant</title>
+  <style>
+    body {
+      background-color: #000;
+      color: #0ff;
+      font-family: monospace;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+    }
+    .eye {
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      background: radial-gradient(circle at center, #ff4500 0%, #8b0000 40%, #222 70%, #111 100%);
+      box-shadow: 0 0 30px #ff4500, 0 0 10px #ff4500 inset;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+      animation: flicker 2s infinite;
+      border: 4px solid #555;
+    }
+    @keyframes flicker {
+      0%, 100% { box-shadow: 0 0 30px #ff4500, 0 0 10px #ff4500 inset; }
+      50% { box-shadow: 0 0 10px #ff6347, 0 0 4px #ff4500 inset; }
+    }
+    #output {
+      max-width: 80%;
+      text-align: center;
+      margin-top: 20px;
+      white-space: pre-wrap;
+    }
+    #inputBox {
+      margin-top: 20px;
+      display: flex;
+      gap: 10px;
+    }
+    input[type="text"] {
+      padding: 10px;
+      font-size: 16px;
+      width: 200px;
+      border: 2px solid #0ff;
+      background: #000;
+      color: #0ff;
+    }
+    button {
+      padding: 10px;
+      background-color: #0ff;
+      border: none;
+      font-weight: bold;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="eye"></div>
+  <h1>GLaDOS is Listening...</h1>
+  <div id="output">Speak or type to begin.</div>  <div id="inputBox">
+    <input type="text" id="textInput" placeholder="Ask GLaDOS...">
+    <button onclick="handleTextInput()">Send</button>
+  </div>  <script>
+    const output = document.getElementById("output");
+    const OPENAI_KEY = prompt("Enter your OpenAI API Key:");
+    const ELEVENLABS_KEY = prompt("Enter your ElevenLabs API Key:");
+    const VOICE_ID = prompt("Enter your ElevenLabs Voice ID (GLaDOS clone):");
+
+    const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+    recognition.continuous = true;
+    recognition.interimResults = false;
+    recognition.lang = 'en-US';
+
+    recognition.onresult = async (event) => {
+      const lastResult = event.results[event.results.length - 1][0].transcript;
+      output.textContent = You: ${lastResult};
+      const gladosReply = await askGLaDOS(lastResult);
+      output.textContent += \nGLaDOS: ${gladosReply};
+      speakGLaDOS(gladosReply);
+    };
+
+    recognition.start();
+
+    async function askGLaDOS(promptText) {
+      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": Bearer ${OPENAI_KEY}
+        },
+        body: JSON.stringify({
+          model: "gpt-4",
+          messages: [
+            { role: "system", content: "You are GLaDOS from Portal. Be sarcastic, dark, and eerily polite." },
+            { role: "user", content: promptText }
+          ]
+        })
+      });
+      const data = await response.json();
+      return data.choices[0].message.content;
+    }
+
+    async function speakGLaDOS(text) {
+      const response = await fetch("https://api.elevenlabs.io/v1/text-to-speech/" + VOICE_ID, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "xi-api-key": ELEVENLABS_KEY
+        },
+        body: JSON.stringify({
+          text: text,
+          voice_settings: {
+            stability: 0.4,
+            similarity_boost: 0.75
+          }
+        })
+      });
+      const audioBlob = await response.blob();
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
+      audio.play();
+    }
+
+    async function handleTextInput() {
+      const inputField = document.getElementById("textInput");
+      const userText = inputField.value.trim();
+      if (!userText) return;
+      output.textContent = You: ${userText};
+      const gladosReply = await askGLaDOS(userText);
+      output.textContent += \nGLaDOS: ${gladosReply};
+      speakGLaDOS(gladosReply);
+      inputField.value = "";
+    }
+  </script></body>
+</html>
